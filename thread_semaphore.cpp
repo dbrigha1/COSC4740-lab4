@@ -22,7 +22,7 @@
 
 #define MAX_RESOURCES 5
 int available_resources = MAX_RESOURCES;
-Semaphore s;
+Semaphore s, mutex;
 /*
     DECLARE SEMAPHORES GLOBALLY SO THEY ARE SHARED BY ALL THREADS
     using the semp.h implementation, semaphores can be declared as
@@ -43,20 +43,25 @@ Semaphore s;
 
 int decrease_count(int count)
 {
+    semaphore_down(&mutex);
     if(available_resources < count)
     {        
+        semaphore_up(&mutex);
         return -1;
     }
     else
     {
         available_resources -= count;
+	semaphore_up(&mutex);
         return 0;       
     }
 }
 
 int increase_count(int count)
 {
+    semaphore_down(&mutex);
     available_resources += count;
+    semaphore_up(&mutex);
     return 0;
 }
 
@@ -66,6 +71,13 @@ int increase_count(int count)
 */
 void decrease_S(int count)
 {
+     semaphore_down(&mutex);
+     for(int i = 0; i < count; i++)
+     {
+       semaphore_down(&s);
+     }
+     available_resources -= count;
+     semaphore_up(&mutex);
     //Don't forget to keep track of available_resources
     //so we can see that it is working correctly
     //Also, don't forget to avoid race conditions on available_resources
@@ -73,6 +85,14 @@ void decrease_S(int count)
 
 void increase_S(int count)
 {
+  for(int i = 0; i < count; i++)
+  {
+     semaphore_up(&s);
+  }
+     semaphore_down(&mutex);
+     available_resources += count;
+     semaphore_up(&mutex);
+   
     //Don't forget to keep track of available_resources
     //so we can see that it is working correctly
     //Also, don't forget to avoid race conditions on available_resources
@@ -101,7 +121,7 @@ void* application(void * id)
     //      instdead to avoid busy waiting?
     //      Part 2 explores this option!
     
-
+/*
     while( decrease_count( c ) == -1 );    
     
     printf("Application %d is starting %d instances.\n", myID, c);
@@ -109,7 +129,7 @@ void* application(void * id)
     sleep( rand() % 2);
     //Release the resource
     increase_count( c );
-    
+*/    
     /*
         End Part 1
     */
@@ -123,14 +143,14 @@ void* application(void * id)
         (Hint, you will need to use the mutex lock from part 1 as well
             to do this correctly!)
     */
-    /*   
+       
     decrease_S(c);
     printf("Application %d is starting %d instances.\n", myID, c);
     //Use the application for a while
     sleep( rand() % 2);
     //Release the resource
-    increase_S( c );
-    */
+    increase_S(c);
+    
     /*
         End Part 2
     */
@@ -148,12 +168,16 @@ int main(int argc, char** argv)
         initilize the semaphore for Part 1
         (the mutex/binary semaphore)
     */
+   
+    semaphore_init(&mutex, 1);
         
     /*
         initilize the semaphore for Part 2
         (the counting semaphore)
     */
-    
+
+    semaphore_init(&s, MAX_RESOURCES);
+   
     //create the "applications"
     for(int i = 0; i < 10; i++)
     {
